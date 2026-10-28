@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Influenza Choropleth: Keihana: Kyoto, Osaka, and Nara</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* New CSS for the navigation bar */
+        .navbar {
+            display: flex;
+            justify-content: flex-start; /* Aligns items to the left */
+            background-color: #333;
+            padding: 0 16px;
+            align-items: center;
+            height: 50px; /* Fixed height for the navbar */
+            width: 100%;
+        }
+
+        .navbar > a {
+            color: white;
+            padding: 14px 20px;
+            text-decoration: none;
+            display: block;
+        }
+
+        .navbar a:hover {
+            background-color: #555;
+        }
+
+        /* Adjust body and map styles for flexbox layout */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column; /* Stack children vertically */
+        }
+
+        #map {
+            flex-grow: 1; /* Make the map take up all available vertical space */
+        }
+
+        /* Styles for the sliding search panel */
+        #searchPanel {
+            position: absolute;
+            top: 60px; /* Adjusted to be below the navbar */
+            left: 10px; /* Start position when expanded */
+            z-index: 999;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            width: 280px; /* Width when expanded - adjusted slightly for content */
+            height: auto; /* Allow height to adjust to content */
+            max-height: calc(100% - 70px); /* Limit height to screen - navbar and margins */
+            overflow-y: auto; /* Allow scrolling if content overflows vertically */
+            transition: left 0.5s ease-out, width 0.5s ease-out, padding 0.5s ease-out;
+            box-sizing: border-box; /* Include padding in width */
+        }
+
+        #searchPanel.collapsed {
+            left: -280px; /* Move entirely off-screen to the left */
+            width: 0; /* Collapse width */
+            padding: 0; /* Remove padding */
+            border: none; /* Remove border when collapsed */
+            overflow: hidden; /* Hide content */
+        }
+
+        #toggleSearchPanel {
+            position: absolute;
+            top: 0; /* Align with the top of the panel */
+            right: -40px; /* Position outside to the right of the panel */
+            width: 40px;
+            height: 40px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 18px;
+            line-height: 38px; /* Center icon vertically */
+            text-align: center;
+            border-left: none; /* No border on the left side */
+            box-sizing: border-box;
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
+            transition: right 0.5s ease-out; /* Smooth transition for the button */
+        }
+
+        #searchPanel.collapsed #toggleSearchPanel {
+            right: -40px; /* Ensure button stays next to the collapsed panel */
+        }
+
+        /* Specific styles for elements within the panel (adjusted for flow) */
+        #searchOptions {
+            background: white;
+            padding: 5px 0;
+            border: none;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #citySearchContainer {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #citySearch {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        #citySearchResults {
+            border: 1px solid #ddd;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: white;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: none;
+        }
+        #citySearchResults li {
+            padding: 8px;
+            cursor: pointer;
+        }
+        #citySearchResults li:hover {
+            background-color: #f0f0f0;
+        }
+
+        #regionSearch {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        .dynamic-radio-group {
+            background: white;
+            padding: 5px;
+            border: 1px solid #ccc;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            margin-top: 10px;
+        }
+        .dynamic-radio-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        /* Styles for the dedicated info box */
+        #infoForecastContainer {
+            position: absolute;
+            top: 60px; /* Adjusted to be below the navbar */
+            right: 10px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        #infoBox {
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-family: Arial, sans-serif;
+        }
+
+        #forecastBox {
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-family: Arial, sans-serif;
+            display: none;
+            overflow-y: auto;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #forecastBox img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin-top: 10px;
+        }
+
+        #forecastBox table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        #forecastBox th, #forecastBox td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+
+        /* Adjust Leaflet zoom control position */
+        .leaflet-control-zoom {
+            position: absolute;
+            top: 60px; /* Adjusted to be below the navbar */
+            left: 10px; /* Default position when panel is closed */
+            transition: left 0.5s ease-out; /* Smooth transition for movement */
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+
+    <div class="navbar">
+        <a href="/">INFLUヤン</a>
+        <a href="/" id="navHome">Home</a>
+        <a href="/forecast" id="navForecast">Forecast</a>
+        <a href="/risk-assessment" id="navRiskAssessment">Risk Assessment</a>
+        <button id="languageToggle" style="margin-left: auto; padding: 5px 10px; cursor: pointer;">English / 日本語</button>
+    </div>
+<div id="searchPanel">
+    <div class="panel-content">
+        <div id="searchOptions">
+            <label><input type="radio" name="searchFilter" value="all" checked> All</label><br>
+            <label><input type="radio" name="searchFilter" value="prefecture"> Prefectures</label><br>
+            <label><input type="radio" name="searchFilter" value="regionGroup"> Region Groups</label>
+        </div>
+
+        <div id="citySearchContainer">
+            <input type="text" id="citySearch" placeholder="🔍 Search by city name..." />
+            <ul id="citySearchResults"></ul>
+        </div>
+
+        <select id="regionSearch">
+            <option disabled selected>🔽 Jump to region or prefecture...</option>
+        </select>
+
+        <div id="prefectureRadioGroup" class="dynamic-radio-group">
+            <h3>Prefectures:</h3>
+        </div>
+
+        <div id="regionGroupRadioGroup" class="dynamic-radio-group">
+            <h3>Region Groups:</h3>
+        </div>
+    </div>
+    <button id="toggleSearchPanel">◀</button>
+</div>
+
+<div id="infoForecastContainer">
+    <div id="infoBox">
+        <h4>Location Details</h4>
+        <div id="infoContent">
+            Select a location on the map or use the search.<br>
+        </div>
+    </div>
+
+    <div id="forecastBox">
+        <h4>Influenza Forecast</h4>
+        <div id="forecastContent">
+            Select a region group or city with available forecast data.
+        </div>
+        <button id="moreInfoBtn" style="margin-top: 10px; display: none;">Show More Information</button>
+    </div>
+</div>
+
+
+<div id="map"></div>
+
+<script>
+    var map = L.map('map', {zoomControl: false}).setView([34.9, 135.5], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const zoomControl = L.control.zoom({ position: 'topleft' }).addTo(map);
+    const zoomControlElement = zoomControl.getContainer();
+
+    const japaneseRegionGroups = {
+        //Osaka
+        "豊能": ["豊中市", "池田市", "箕面市", "豊能町", "能勢町"],
+        "三島": ["高槻市", "茨木市", "摂津市", "島本町", "吹田市"],
+        "北河内": ["枚方市", "寝屋川市", "守口市", "門真市", "四條畷市", "大東市", "交野市"],
+        "中河内": ["東大阪市", "八尾市", "柏原市"],
+        "南河内": ["松原市", "藤井寺市", "羽曳野市", "富田林市", "大阪狭山市", "河南町", "太子町", "千早赤阪村", "河内長野市"],
+        "堺市": ["堺市堺区", "堺市西区", "堺市北区", "堺市中区", "堺市東区", "堺市南区", "堺市美原区"],
+        "泉州": ["和泉市", "高石市", "泉大津市", "忠岡町", "岸和田市", "貝塚市", "泉佐野市", "泉南市", "阪南市", "田尻市", "熊取町", "岬町"],
+        "大阪市北部": ["北区", "都島区", "淀川区", "東淀川区", "旭区"],
+        "大阪市西部": ["西淀川区", "此花区", "港区", "大正区", "西区", "福島区"],
+        "大阪市東部": ["中央区", "天王寺区", "浪速区", "城東区", "鶴見区", "東成区", "生野区"],
+        "大阪市南部": ["阿倍野区", "住吉区", "東住吉区", "住之江区", "平野区", "西成区"],
+
+        //Kyoto
+        "乙訓": ["長岡京市", "向日市", "大山崎町"],
+        "山城北": ["宇治市", "城陽市", "八幡市", "京田辺市", "久御山町", "宇治田原町", "井手町"],
+        "山城南": ["木津川市", "笠置町", "和束町", "精華町", "南山城村"],
+        "南丹": ["南丹市", "亀岡市", "京丹波町"],
+        "中丹西": ["福知山市"],
+        "中丹東": ["舞鶴市", "綾部市"],
+        "丹後": ["京丹後市", "宮津市", "伊根町", "与謝野町"],
+        "京都市": ["京都市北区", "上京区", "左京区", "中京区", "東山区", "山科区", "下京区", "南区", "西京区", "右京区", "伏見区"],
+
+        //Nara
+        "奈良市": ["奈良市"],
+        "郡山": ["大和郡山市", "天理市", "生駒市", "山添村", "平群町", "三郷町", "斑鳩町", "安堵町"],
+        "中和東": ["桜井市", "宇陀市", "曽爾村", "御杖村"],
+        "中和西": ["大和高田市", "橿原市", "御所市", "香芝市", "葛城市", "川西町", "三宅町", "田原本町", "高取町", "明日香村", "上牧町", "王寺町", "広陵町", "河合町"],
+        "吉野": ["吉野町", "下市町", "黒滝村", "天川村", "川上村", "上北山村", "下北山村", "東吉野村","十津川村", "大淀町", "五條市", "野迫川村"],
+    };
+
+    const englishRegionGroups = {
+        //Osaka
+        "Toyono": ["Toyonaka-shi", "Ikeda-shi", "Minoo-shi", "Toyono-cho", "Nose-cho"],
+        "Mishima": ["Takatsuki-shi", "Ibaraki-shi", "Settsu-shi", "Shimamoto-cho", "Suita-shi"],
+        "Kita-Kawachi": ["Hirakata-shi", "Neyagawa-shi", "Moriguchi-shi", "Kadoma-shi", "Shijonawate-shi", "Daito-shi", "Katano-shi"],
+        "Naka-Kawachi": ["Higashiosaka-shi", "Yao-shi", "Kashiwara-shi"],
+        "Minami-Kawachi": ["Matsubara-shi", "Fujiidera-shi", "Habikino-shi", "Tondabayashi-shi", "Osaka Sayama-shi", "Kanan-cho", "Taishi-cho", "Chihayaakasaka-mura", "Kawachinagano-shi"],
+        "Sakai City": ["Sakai-shi Sakai-ku", "Sakai-shi Nishi-ku", "Sakai-shi Kita-ku", "Sakai-shi Naka-ku", "Sakai-shi Higashi-ku", "Sakai-shi Minami-ku", "Sakai-shi Mihara-ku"],
+        "Senshu": ["Izumi-shi", "Takaishi-shi", "Izumiotsu-shi", "Tadaoka-cho", "Kishiwada-shi", "Kaizuka-shi", "Izumisano-shi", "Sennan-shi", "Hannan-shi", "Tajiri-shi", "Kumatori-cho", "Misaki-cho"],
+        "Northern Osaka City": ["Kita-ku", "Miyakojima-ku", "Yodogawa-ku", "Higashiyodogawa-ku", "Asahi-ku"],
+        "Western Osaka City": ["Nishiyodogawa-ku", "Konohana-ku", "Minato-ku", "Taisho-ku", "Nishi-ku", "Fukushima-ku"],
+        "Eastern Osaka City": ["Chuo-ku", "Tennoji-ku", "Naniwa-ku", "Joto-ku", "Tsurumi-ku", "Higashinari-ku", "Ikuno-ku"],
+        "Southern Osaka City": ["Abeno-ku", "Sumiyoshi-ku", "Higashisumiyoshi-ku", "Suminoe-ku", "Hirano-ku", "Nishinari-ku"],
+        
+        //Kyoto
+        "Otokuni": ["Nagaokakyo-shi", "Muko-shi", "Oyamazaki-cho"],
+        "Yamashiro North": ["Uji-shi", "Joyo-shi", "Hachiman-shi", "Kyotanabe-shi", "Kumiyama-cho", "Ujitawara-cho", "Ide-cho"],
+        "Yamashiro South": ["Kizugawa-shi", "Kasagi-cho", "Wazuka-cho", "Seika-cho", "Minamiyamashiro-mura"],
+        "Nantan": ["Nantan-shi", "Kameoka-shi", "Kyotanba-cho"],
+        "Chutan West": ["Fukuchiyama-shi"],
+        "Chutan East": ["Maizuru-shi", "Ayabe-shi"],
+        "Tango": ["Kyotango-shi", "Miyazu-shi", "Ine-cho", "Yosano-cho"],
+        "Kyoto City": ["Kyoto-shi Kita-ku", "Kamigyo-ku", "Sakyo-ku", "Nakagyo-ku", "Higashiyama-ku", "Yamashina-ku", "Shimogyo-ku", "Minami-ku", "Nishikyo-ku", "Ukyo-ku", "Fushimi-ku"],
+        
+        //Nara
+        "Nara City": ["Nara-shi"],
+        "Koriyama": ["Yamatokoriyama-shi", "Tenri-shi", "Ikoma-shi", "Yamazoe-mura", "Heguri-cho", "Sango-cho", "Ikaruga-cho", "Ando-cho"],
+        "Chuwa East": ["Sakurai-shi", "Uda-shi", "Soni-mura", "Mitsue-mura"],
+        "Chuwa West": ["Yamatotakada-shi", "Kashihara-shi", "Gose-shi", "Kashiba-shi", "Katsuragi-shi", "Kawanishi-cho", "Miyake-cho", "Tawaramoto-cho", "Takatori-cho", "Asuka-mura", "Kanmaki-cho", "Oji-cho", "Koryo-cho", "Kawai-cho"],
+        "Yoshino": ["Yoshino-cho", "Shimoichi-cho", "Kurotaki-mura", "Tenkawa-mura", "Kawakami-mura", "Kamikitayama-mura", "Shimokitayama-mura", "Higashiyoshino-mura","Totsukawa-mura", "Oyodo-cho", "Gojo-shi", "Nosegawa-mura"],
+        
+    };
+
+    let currentLanguage = 'en'; // Default language (set to English)
+
+    // Map city GeoJSON names to standardized English names if necessary for search/display purposes
+    const cityNameToEnglish = {
+        "豊中市": "Toyonaka-shi", "池田市": "Ikeda-shi", "箕面市": "Minoo-shi", "豊能町": "Toyono-cho", "能勢町": "Nose-cho",
+        "高槻市": "Takatsuki-shi", "茨木市": "Ibaraki-shi", "摂津市": "Settsu-shi", "島本町": "Shimamoto-cho", "吹田市": "Suita-shi",
+        "枚方市": "Hirakata-shi", "寝屋川市": "Neyagawa-shi", "守口市": "Moriguchi-shi", "門真市": "Kadoma-shi", "四條畷市": "Shijonawate-shi", "大東市": "Daito-shi", "交野市": "Katano-shi",
+        "東大阪市": "Higashiosaka-shi", "八尾市": "Yao-shi", "柏原市": "Kashiwara-shi",
+        "松原市": "Matsubara-shi", "藤井寺市": "Fujiidera-shi", "羽曳野市": "Habikino-shi", "富田林市": "Tondabayashi-shi", "大阪狭山市": "Osaka Sayama-shi", "河南町": "Kanan-cho", "太子町": "Taishi-cho", "千早赤阪村": "Chihayaakasaka-mura", "河内長野市": "Kawachinagano-shi",
+        "堺市堺区": "Sakai-shi Sakai-ku", "堺市西区": "Sakai-shi Nishi-ku", "堺市北区": "Sakai-shi Kita-ku", "堺市中区": "Sakai-shi Naka-ku", "堺市東区": "Sakai-shi Higashi-ku", "堺市南区": "Sakai-shi Minami-ku", "堺市美原区": "Sakai-shi Mihara-ku",
+        "和泉市": "Izumi-shi", "高石市": "Takaishi-shi", "泉大津市": "Izumiotsu-shi", "忠岡町": "Tadaoka-cho", "岸和田市": "Kishiwada-shi", "貝塚市": "Kaizuka-shi", "泉佐野市": "Izumisano-shi", "泉南市": "Sennan-shi", "阪南市": "Hannan-shi", "田尻市": "Tajiri-shi", "熊取町": "Kumatori-cho", "岬町": "Misaki-cho",
+        "北区": "Kita-ku", "都島区": "Miyakojima-ku", "淀川区": "Yodogawa-ku", "東淀川区": "Higashiyodogawa-ku", "旭区": "Asahi-ku",
+        "西淀川区": "Nishiyodogawa-ku", "此花区": "Konohana-ku", "港区": "Minato-ku", "大正区": "Taisho-ku", "西区": "Nishi-ku", "福島区": "Fukushima-ku",
+        "中央区": "Chuo-ku", "天王寺区": "Tennoji-ku", "浪速区": "Naniwa-ku", "城東区": "Joto-ku", "鶴見区": "Tsurumi-ku", "東成区": "Higashinari-ku", "生野区": "Ikuno-ku",
+        "阿倍野区": "Abeno-ku", "住吉区": "Sumiyoshi-ku", "東住吉区": "Higashisumiyoshi-ku", "住之江区": "Suminoe-ku", "平野区": "Hirano-ku", "西成区": "Nishinari-ku",
+
+        "長岡京市": "Nagaokakyo-shi", "向日市": "Muko-shi", "大山崎町": "Oyamazaki-cho",
+        "宇治市": "Uji-shi", "城陽市": "Joyo-shi", "八幡市": "Hachiman-shi", "京田辺市": "Kyotanabe-shi", "久御山町": "Kumiyama-cho", "宇治田原町": "Ujitawara-cho", "井手町": "Ide-cho",
+        "木津川市": "Kizugawa-shi", "笠置町": "Kasagi-cho", "和束町": "Wazuka-cho", "精華町": "Seika-cho", "南山城村": "Minamiyamashiro-mura",
+        "南丹市": "Nantan-shi", "亀岡市": "Kameoka-shi", "京丹波町": "Kyotanba-cho",
+        "福知山市": "Fukuchiyama-shi",
+        "舞鶴市": "Maizuru-shi", "綾部市": "Ayabe-shi",
+        "京丹後市": "Kyotango-shi", "宮津市": "Miyazu-shi", "伊根町": "Ine-cho", "与謝野町": "Yosano-cho",
+        "京都市北区": "Kyoto-shi Kita-ku", "上京区": "Kamigyo-ku", "左京区": "Sakyo-ku", "中京区": "Nakagyo-ku", "東山区": "Higashiyama-ku", "山科区": "Yamashina-ku", "下京区": "Shimogyo-ku", "南区": "Minami-ku", "西京区": "Nishikyo-ku", "右京区": "Ukyo-ku", "伏見区": "Fushimi-ku",
+
+        "奈良市": "Nara-shi",
+        "大和郡山市": "Yamatokoriyama-shi", "天理市": "Tenri-shi", "生駒市": "Ikoma-shi", "山添村": "Yamazoe-mura", "平群町": "Heguri-cho", "三郷町": "Sango-cho", "斑鳩町": "Ikaruga-cho", "安堵町": "Ando-cho",
+        "桜井市": "Sakurai-shi", "宇陀市": "Uda-shi", "曽爾村": "Soni-mura", "御杖村": "Mitsue-mura",
+        "大和高田市": "Yamatotakada-shi", "橿原市": "Kashihara-shi", "御所市": "Gose-shi", "香芝市": "Kashiba-shi", "葛城市": "Katsuragi-shi", "川西町": "Kawanishi-cho", "三宅町": "Miyake-cho", "田原本町": "Tawaramoto-cho", "高取町": "Takatori-cho", "明日香村": "Asuka-mura", "上牧町": "Kanmaki-cho", "王寺町": "Oji-cho", "広陵町": "Koryo-cho", "河合町": "Kawai-cho",
+        "吉野町": "Yoshino-cho", "下市町": "Shimoichi-cho", "黒滝村": "Kurotaki-mura", "天川村": "Tenkawa-mura", "川上村": "Kawakami-mura", "上北山村": "Kamikitayama-mura", "下北山村": "Shimokitayama-mura", "東吉野村": "Higashiyoshino-mura", "十津川村": "Totsukawa-mura", "大淀町": "Oyodo-cho", "五條市": "Gojo-shi", "野迫川村": "Nosegawa-mura"
+    };
+
+    const englishToJapaneseCity = Object.entries(cityNameToEnglish).reduce((acc, [key, value]) => {
+        acc[value] = key;
+        return acc;
+    }, {});
+
+
+    // This will be the active regionGroups based on language selection
+    let regionGroups = currentLanguage === 'ja' ? japaneseRegionGroups : englishRegionGroups;
+
+    const prefectureTranslation = {
+        "Osaka-Prefecture": {
+            "ja": "大阪府",
+            "en": "Osaka Prefecture"
+        },
+        "Kyoto-Prefecture": {
+            "ja": "京都府",
+            "en": "Kyoto Prefecture"
+        },
+        "Nara-Prefecture": {
+            "ja": "奈良県",
+            "en": "Nara Prefecture"
+        }
+    };
+
+
+    let overlayMaps = {};
+    const cityToRegion = {};
+    const cityToFeature = {};
+
+    // Populate cityToRegion for both Japanese and English region groups
+    function populateCityToRegion() {
+        for (const [region, cities] of Object.entries(japaneseRegionGroups)) {
+            cities.forEach(city => {
+                cityToRegion[city] = region; // Japanese city name maps to Japanese region name
+            });
+        }
+        for (const [region, cities] of Object.entries(englishRegionGroups)) {
+            cities.forEach(city => {
+                cityToRegion[city] = region; // English city name maps to English region name
+            });
+        }
+    }
+    populateCityToRegion();
+
+    // Map from region group display name (both JPN and ENG) to database region_Name (must match API response keys)
+    const REGION_GROUP_TO_DB_NAME_MAP = {
+        //Osaka
+        "豊能": "Toyono", "Toyono": "Toyono",
+        "三島": "Mishima", "Mishima": "Mishima",
+        "北河内": "Kitakouchi", "Kita-Kawachi": "Kitakouchi",
+        "中河内": "Nakawachi", "Naka-Kawachi": "Nakawachi",
+        "南河内": "Minamikawachi", "Minami-Kawachi": "Minamikawachi",
+        "堺市": "Sakai-shi", "Sakai City": "Sakai-shi",
+        "泉州": "Senshuu", "Senshu": "Senshuu",
+        "大阪市北部": "Osaka-shi-North", "Northern Osaka City": "Osaka-shi-North",
+        "大阪市西部": "Osaka-shi-West", "Western Osaka City": "Osaka-shi-West",
+        "大阪市東部": "Osaka-shi-East", "Eastern Osaka City": "Osaka-shi-East",
+        "大阪市南部": "Osaka-shi-South", "Southern Osaka City": "Osaka-shi-South",
+        //Kyoto
+        "乙訓": "Otokuni", "Otokuni": "Otokuni",
+        "山城北": "Yamashiro-North", "Yamashiro North": "Yamashiro-North",
+        "山城南": "Yamashiro-South", "Yamashiro South": "Yamashiro-South",
+        "南丹": "Nantan", "Nantan": "Nantan",
+        "中丹西": "Chutan-West", "Chutan West": "Chutan-West",
+        "中丹東": "Chutan-East", "Chutan East": "Chutan-East",
+        "丹後": "Tango", "Tango": "Tango",
+        "京都市": "Kyoto-shi", "Kyoto City": "Kyoto-shi",
+        //Nara
+        "奈良市": "Nara-shi", "Nara City": "Nara-shi",
+        "郡山": "Koriyama", "Koriyama": "Koriyama",
+        "中和東": "Chuwa-East", "Chuwa East": "Chuwa-East",
+        "中和西": "Chuwa-West", "Chuwa West": "Chuwa-West",
+        "吉野": "Yoshino", "Yoshino": "Yoshino"
+    };
+
+
+    // Define getColor function for choropleth styling
+    function getColor(d) {
+        return d > 50 ? '#800026' :
+               d > 20  ? '#BD0026' :
+               d > 10  ? '#E31A1C' :
+               d > 5   ? '#FC4E2A' :
+               d > 2   ? '#FD8D3C' :
+               d > 0   ? '#FEB24C' :
+                         '#FFFFFF'; // White for 0 cases or no data
+    }
+
+    const colors = ["#FF5733", "#3366ff", "#FF33D4", "#8DFF33", "#FFC300", "#ffff00", "#A569BD", "#5DADE2", "#ff0000", "#58D68D", "#F4D03F", "#33FFF6", "#F699CD", "#99FF99", "#FF9966"];
+
+    const prefectureRadioGroupDiv = document.getElementById("prefectureRadioGroup");
+    const regionGroupRadioGroupDiv = document.getElementById("regionGroupRadioGroup");
+    const infoBox = document.getElementById("infoBox");
+    const infoContent = document.getElementById("infoContent");
+    const citySearchInput = document.getElementById("citySearch");
+    const citySearchResults = document.getElementById("citySearchResults");
+    const regionSearchSelect = document.getElementById("regionSearch");
+    const languageToggleBtn = document.getElementById('languageToggle');
+
+    const searchPanel = document.getElementById('searchPanel');
+    const toggleSearchPanelButton = document.getElementById('toggleSearchPanel');
+
+    const forecastBox = document.getElementById("forecastBox");
+    const forecastContent = document.getElementById("forecastContent");
+
+
+    function updateInfoBox(name, cases, additionalInfo = {}) {
+        let displayName = name;
+        let regionGroupDisplayName = additionalInfo.regionGroup;
+        let prefectureDisplayName = additionalInfo.prefecture;
+
+        if (currentLanguage === 'en') {
+            // If the input name is Japanese, convert it to English for display
+            if (Object.values(japaneseRegionGroups).flat().includes(name)) { // Check if it's a Japanese city name
+                displayName = cityNameToEnglish[name] || name;
+            } else if (Object.keys(japaneseRegionGroups).includes(name)) { // Check if it's a Japanese region group name
+                // Find the English equivalent of the region group name
+                const japRegionKey = Object.keys(japaneseRegionGroups).find(key => key === name);
+                displayName = Object.keys(englishRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[japRegionKey]) || name;
+            } else if (name.includes("Prefecture") && prefectureTranslation[name]) { // Check if it's a prefecture name
+                displayName = prefectureTranslation[name].en;
+            }
+
+            if (additionalInfo.isCitySearch && additionalInfo.originalCityName) {
+                displayName = cityNameToEnglish[additionalInfo.originalCityName] || additionalInfo.originalCityName;
+            }
+
+
+            if (regionGroupDisplayName && Object.keys(japaneseRegionGroups).includes(regionGroupDisplayName)) {
+                 const japRegionKey = Object.keys(japaneseRegionGroups).find(key => key === regionGroupDisplayName);
+                 regionGroupDisplayName = Object.keys(englishRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[japRegionKey]);
+            }
+            if (prefectureDisplayName && prefectureTranslation[prefectureDisplayName]) {
+                prefectureDisplayName = prefectureTranslation[prefectureDisplayName].en;
+            }
+
+        } else { // currentLanguage === 'ja'
+            // If the input name is English, convert it to Japanese for display
+            if (Object.values(englishRegionGroups).flat().includes(name)) { // Check if it's an English city name
+                displayName = englishToJapaneseCity[name] || name;
+            } else if (Object.keys(englishRegionGroups).includes(name)) { // Check if it's an English region group name
+                // Find the Japanese equivalent of the region group name
+                const engRegionKey = Object.keys(englishRegionGroups).find(key => key === name);
+                displayName = Object.keys(japaneseRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[engRegionKey]) || name;
+            } else if (name.includes("Prefecture") && prefectureTranslation[name]) { // Check if it's a prefecture name
+                displayName = prefectureTranslation[name].ja;
+            }
+
+            if (additionalInfo.isCitySearch && additionalInfo.originalCityName) {
+                 displayName = additionalInfo.originalCityName;
+            }
+
+
+            if (regionGroupDisplayName && Object.keys(englishRegionGroups).includes(regionGroupDisplayName)) {
+                 const engRegionKey = Object.keys(englishRegionGroups).find(key => key === regionGroupDisplayName);
+                 regionGroupDisplayName = Object.keys(japaneseRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[engRegionKey]);
+            }
+             if (prefectureDisplayName && prefectureTranslation[prefectureDisplayName]) {
+                prefectureDisplayName = prefectureTranslation[prefectureDisplayName].ja;
+            }
+        }
+
+        let content = `<b>${currentLanguage === 'ja' ? '名前' : 'Name'}:</b> ${displayName}<br>`;
+        if (additionalInfo.isCitySearch && regionGroupDisplayName) {
+            content += `<b>${currentLanguage === 'ja' ? '症例数 (地域グループ)' : 'Case amount (Region Group)'}:</b> ${cases}`;
+        } else {
+            content += `<b>${currentLanguage === 'ja' ? '症例数' : 'Cases'}:</b> ${cases}`;
+        }
+
+        if (prefectureDisplayName) {
+            content += `<br><b>${currentLanguage === 'ja' ? '都道府県' : 'Prefecture'}:</b> ${prefectureDisplayName}`;
+        }
+        if (regionGroupDisplayName && !additionalInfo.isCitySearch) {
+            content += `<br><b>${currentLanguage === 'ja' ? '地域グループ' : 'Region Group'}:</b> ${regionGroupDisplayName}`;
+        } else if (additionalInfo.isCitySearch && regionGroupDisplayName) {
+             content += `<br><b>${currentLanguage === 'ja' ? '地域グループ' : 'Region Group'}:</b> ${regionGroupDisplayName}`;
+        }
+        infoContent.innerHTML = content;
+    }
+
+    // Keep clearInfoBox as a separate function
+    function clearInfoBox() {
+        const selectLocationText = currentLanguage === 'ja' ? '地図上の場所を選択するか、検索を使用してください。' : 'Select a location on the map or use the search.';
+        const forecastDataText = currentLanguage === 'ja' ? '利用可能な予測データを持つ地域グループまたは都市を選択してください。' : 'Select a region group or city with available forecast data.';
+
+        const currentTimeLabel = currentLanguage === 'ja' ? '現在時刻' : 'Current Time'; // This is already good for translation
+        const currentTime = new Date().toLocaleString('en-US', { hour12: false, timeZoneName: 'short' });
+
+        infoContent.innerHTML = `${selectLocationText}<br>${currentTimeLabel}: ${currentTime}`;
+        forecastContent.innerHTML = forecastDataText;
+        forecastBox.style.display = "none";
+    }
+
+// Ensure it's called within the languageToggleBtn listener
+languageToggleBtn.addEventListener('click', function() {
+    // ... (other language toggle logic) ...
+
+  
+
+    // ... (rest of the language toggle logic) ...
+});
+
+    clearInfoBox();
+
+    // Function to adjust zoom control position
+    function adjustZoomControlPosition() {
+        if (searchPanel.classList.contains('collapsed')) {
+            zoomControlElement.style.left = `10px`;
+        } else {
+            zoomControlElement.style.left = `${searchPanel.offsetWidth + 20}px`;
+        }
+    }
+    let regionCaseData = {}; // Global variable to store case data
+    let allFeatures = [];
+    let prefectureGroups = {
+        "Osaka-Prefecture": [],
+        "Kyoto-Prefecture": [],
+        "Nara-Prefecture" : []
+    };
+
+    // Encapsulate map drawing logic in a function
+    function initializeMap() {
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.GeoJSON) {
+                map.removeLayer(layer);
+            }
+        });
+        overlayMaps = {};
+        prefectureGroups = {
+            "Osaka-Prefecture": [],
+            "Kyoto-Prefecture": [],
+            "Nara-Prefecture" : []
+        };
+
+        // Use absolute URLs for fetching GeoJSON data
+        $.when(
+            $.getJSON('http://127.0.0.1:5000/static/kyoto_overlay.json'),
+            $.getJSON('http://127.0.0.1:5000/static/osaka_overlay.json'),
+            $.getJSON('http://127.0.0.1:5000/static/nara_overlay.json')
+        ).done(function(kyotoData, osakaData, naraData) {
+            allFeatures = kyotoData[0].features
+                                        .concat(osakaData[0].features)
+                                        .concat(naraData[0].features);
+
+            for (const feature of allFeatures) {
+                const pref = feature.properties.N03_001;
+                // Add feature to prefectureGroups for later use
+                if (pref === "大阪府") {
+                    prefectureGroups["Osaka-Prefecture"].push(feature);
+                } else if (pref === "京都府") {
+                    prefectureGroups["Kyoto-Prefecture"].push(feature);
+                } else if (pref === "奈良県") {
+                    prefectureGroups["Nara-Prefecture"].push(feature);
+                }
+                // Ensure N03_004 exists before adding to cityToFeature
+                if (feature.properties.N03_004) {
+                    cityToFeature[feature.properties.N03_004] = feature;
+                    // Also store English name mapping if available
+                    if (cityNameToEnglish[feature.properties.N03_004]) {
+                        cityToFeature[cityNameToEnglish[feature.properties.N03_004]] = feature;
+                    }
+                }
+            }
+
+            function createGeoJsonLayer(features, baseColor, layerName, type, options = {}) {
+                const layer = L.geoJson({ type: "FeatureCollection", features }, {
+                    style: function(feature) { // This is now a function for dynamic styling
+                        let casesForFeatureFill = 0; // Cases for this individual feature's fill color
+                        const city_name_japanese = feature.properties.N03_004; // This is the city name from GeoJSON (always Japanese)
+
+                        if (type === 'regionGroup') {
+                            // If this layer is for a region group (e.g., Toyono), all its cities share that group's cases
+                            // layerName here is the display name (e.g., "豊能" or "Toyono")
+                            const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[layerName];
+                            casesForFeatureFill = regionCaseData[dbRegionName] || 0;
+                        } else if (type === 'prefecture') {
+                            // If this layer is for a prefecture (e.g., Osaka Prefecture), individual cities need their region group's cases
+                            const regionGroupDisplayName_japanese = cityToRegion[city_name_japanese];
+                            if (regionGroupDisplayName_japanese) {
+                                const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                                casesForFeatureFill = regionCaseData[dbRegionName] || 0;
+                            }
+                        }
+                        return {
+                            fillColor: getColor(casesForFeatureFill), // Use getColor based on calculated cases
+                            weight: options.weight || 2,
+                            opacity: options.opacity || 0.8,
+                            color: options.color || 'white', // Outline color
+                            fillOpacity: options.fillOpacity || 0.7
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        // The popup should show details for the specific feature clicked
+                        const city_name_japanese = feature.properties.N03_004; // Always Japanese from GeoJSON
+                        let currentCityName = city_name_japanese;
+                        if (currentLanguage === 'en') {
+                            currentCityName = cityNameToEnglish[city_name_japanese] || city_name_japanese;
+                        }
+
+                        let popupText = `<b>${currentCityName}</b><br/>`; // City name or general name
+
+                        let actualCasesForPopup = 0;
+                        const regionGroupDisplayName_japanese = cityToRegion[city_name_japanese]; // Always Japanese region group name
+                        let regionGroupDisplayName_currentLang = regionGroupDisplayName_japanese;
+
+                        if (currentLanguage === 'en' && regionGroupDisplayName_japanese) {
+                            const japRegionKey = Object.keys(japaneseRegionGroups).find(key => key === regionGroupDisplayName_japanese);
+                            regionGroupDisplayName_currentLang = Object.keys(englishRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[japRegionKey]);
+                        }
+
+                        if (regionGroupDisplayName_japanese) {
+                            const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                            actualCasesForPopup = regionCaseData[dbRegionName] || 0;
+                            popupText += `${currentLanguage === 'ja' ? '地域グループ' : 'Region Group'}: ${regionGroupDisplayName_currentLang || regionGroupDisplayName_japanese}<br/>`;
+                            popupText += `${currentLanguage === 'ja' ? '症例数 (地域グループ)' : 'Cases (Region Group)'}: ${actualCasesForPopup}`;
+                        } else {
+                            popupText += `${currentLanguage === 'ja' ? '症例数: N/A (地域データなし)' : 'Cases: N/A (No specific region data)'}`;
+                        }
+
+                        feature.properties.real_cases = actualCasesForPopup;
+                        layer.bindPopup(popupText);
+
+                        layer.on('click', function(e) {
+                            clearInfoBox();
+                            let infoBoxRegionName = regionGroupDisplayName_currentLang || currentCityName;
+                            let infoBoxCases = actualCasesForPopup;
+                            let prefectureName_japanese = feature.properties.N03_001;
+                            let prefectureName_currentLang = prefectureTranslation[Object.keys(prefectureTranslation).find(key => prefectureTranslation[key].ja === prefectureName_japanese)]?.[currentLanguage] || prefectureName_japanese;
+
+                            updateInfoBox(currentCityName, infoBoxCases, {
+                                isCitySearch: true,
+                                regionGroup: regionGroupDisplayName_japanese, // Pass Japanese to updateInfoBox to allow translation
+                                prefecture: prefectureName_japanese, // Pass Japanese to updateInfoBox to allow translation
+                                originalCityName: city_name_japanese // Keep original Japanese city name for proper lookup in DB_NAME_MAP
+                            });
+
+                            let regionForForecast = null;
+                            if (regionGroupDisplayName_japanese && REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese]) {
+                                regionForForecast = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                            }
+
+                            if (regionForForecast) {
+                                // Use absolute URL for fetching forecast data
+                                fetch(`http://172.16.1.13:5000/api/forecast?region=${regionForForecast}`)
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.error) {
+                                            forecastContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                                        } else {
+                                            // Use absolute URL for the image source
+                                            forecastContent.innerHTML = `
+                                                <img src="http://172.16.1.13:5000${data.plot_url}" onerror="this.onerror=null;this.src='https://placehold.co/400x300/cccccc/ffffff?text=Forecast+Plot+Missing';" style="width:100%; margin-top:10px;">
+                                            `;
+                                        }
+                                        forecastBox.style.display = "block";
+                                    })
+                                    .catch(err => {
+                                        forecastContent.innerHTML = `<p style="color:red;">${currentLanguage === 'ja' ? '予測の取得エラー' : 'Error fetching forecast'}: ${err.message}</p>`;
+                                        forecastBox.style.display = "block";
+                                    });
+                            } else {
+                                forecastBox.style.display = "none";
+                            }
+                        });
+                    }
+                });
+
+                // Calculate total cases for the *layer's* collective popup (prefecture or region group)
+                let totalCasesForLayerPopup = 0;
+                let layerNameForPopup = layerName;
+
+                if (type === 'prefecture') {
+                    const currentPrefectureDbName = layerName.replace(' Prefecture', '-Prefecture');
+                    totalCasesForLayerPopup += regionCaseData[currentPrefectureDbName] || 0;
+
+                    features.forEach(f => {
+                        const city_japanese = f.properties.N03_004;
+                        const regionGroupDisplayName_japanese = cityToRegion[city_japanese];
+                        if (regionGroupDisplayName_japanese) {
+                            const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                            totalCasesForLayerPopup += regionCaseData[dbRegionName] || 0;
+                        }
+                    });
+                    if (currentLanguage === 'ja' && prefectureTranslation[layerName]) {
+                        layerNameForPopup = prefectureTranslation[layerName].ja;
+                    }
+                } else if (type === 'regionGroup') {
+                    const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[layerName];
+                    totalCasesForLayerPopup = regionCaseData[dbRegionName] || 0;
+                     if (currentLanguage === 'ja' && englishRegionGroups[layerName]) {
+                        const engRegionKey = Object.keys(englishRegionGroups).find(key => key === layerName);
+                        layerNameForPopup = Object.keys(japaneseRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[engRegionKey]);
+                    }
+                }
+                layer.bindPopup(`<b>${layerNameForPopup}</b><br>${currentLanguage === 'ja' ? '合計症例数' : 'Total Cases'}: ${totalCasesForLayerPopup}`);
+
+                return layer;
+            }
+
+            const osakaPrefectureLayer = createGeoJsonLayer(prefectureGroups["Osaka-Prefecture"], "#FF6666", "Osaka-Prefecture", "prefecture");
+            const kyotoPrefectureLayer = createGeoJsonLayer(prefectureGroups["Kyoto-Prefecture"], "#6666FF", "Kyoto-Prefecture", "prefecture");
+            const naraPrefectureLayer = createGeoJsonLayer(prefectureGroups["Nara-Prefecture"], "#ffcc00", "Nara-Prefecture", "prefecture");
+
+            overlayMaps["Osaka-Prefecture"] = osakaPrefectureLayer;
+            overlayMaps["Kyoto-Prefecture"] = kyotoPrefectureLayer;
+            overlayMaps["Nara-Prefecture"] = naraPrefectureLayer;
+
+            let colorIndex = 0;
+            for (const [regionName, cityList] of Object.entries(regionGroups)) {
+                // Determine the Japanese city names for filtering, as GeoJSON properties are Japanese
+                let japaneseCityList;
+                if (currentLanguage === 'en') {
+                    japaneseCityList = cityList.map(englishCity => englishToJapaneseCity[englishCity] || englishCity);
+                } else {
+                    japaneseCityList = cityList;
+                }
+
+                const featuresInRegion = allFeatures.filter(feature => japaneseCityList.includes(feature.properties.N03_004));
+
+                const regionLayer = createGeoJsonLayer(featuresInRegion, colors[colorIndex % colors.length], regionName, "regionGroup");
+                overlayMaps[regionName] = regionLayer;
+                colorIndex++;
+            }
+
+            const searchFilterRadios = document.querySelectorAll('input[name="searchFilter"]');
+
+            function hideAllDynamicRadioGroups() {
+                prefectureRadioGroupDiv.style.display = "none";
+                regionGroupRadioGroupDiv.style.display = "none";
+            }
+
+            function clearDynamicRadioGroups() {
+                prefectureRadioGroupDiv.innerHTML = `<h3>${currentLanguage === 'ja' ? '都道府県:' : 'Prefectures:'}</h3>`;
+                regionGroupRadioGroupDiv.innerHTML = `<h3>${currentLanguage === 'ja' ? '地域グループ:' : 'Region Groups:'}</h3>`;
+            }
+
+            function hideAllMapLayers() {
+                for (const layerName in overlayMaps) {
+                    if (map.hasLayer(overlayMaps[layerName])) {
+                        map.removeLayer(overlayMaps[layerName]);
+                    }
+                }
+                map.eachLayer(function(layer) {
+                    if (layer.options && layer.options.isCityHighlight) {
+                        map.removeLayer(layer);
+                    }
+                });
+                clearInfoBox();
+            }
+
+            function handleDynamicRadioChange(event) {
+                hideAllMapLayers();
+                const selectedLayerName = event.target.value;
+                if (overlayMaps[selectedLayerName]) {
+                    map.addLayer(overlayMaps[selectedLayerName]);
+                    map.fitBounds(overlayMaps[selectedLayerName].getBounds());
+
+                    let totalCases = 0;
+                    let dbRegionName = "";
+                    let infoBoxRegionName = selectedLayerName;
+                    let infoBoxPrefectureName = "";
+
+                    if (Object.keys(regionGroups).includes(selectedLayerName)) {
+                        dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[selectedLayerName];
+                        totalCases = regionCaseData[dbRegionName] || 0;
+
+                        const firstCityFeature = overlayMaps[selectedLayerName].getLayers()[0]?.feature;
+                        const prefecture_japanese = firstCityFeature ? firstCityFeature.properties.N03_001 : 'N/A';
+                        infoBoxPrefectureName = prefectureTranslation[Object.keys(prefectureTranslation).find(key => prefectureTranslation[key].ja === prefecture_japanese)]?.[currentLanguage] || prefecture_japanese;
+
+                        updateInfoBox(infoBoxRegionName, totalCases, { prefecture: infoBoxPrefectureName });
+
+                    } else if (Object.keys(prefectureGroups).includes(selectedLayerName)) {
+                        const currentPrefectureDbName = selectedLayerName.replace(' Prefecture', '-Prefecture');
+                        totalCases += regionCaseData[currentPrefectureDbName] || 0;
+
+                        overlayMaps[selectedLayerName].eachLayer(function(featureLayer) {
+                            const city_japanese = featureLayer.feature.properties.N03_004;
+                            const regionGroupDisplayName_japanese = cityToRegion[city_japanese];
+                            if (regionGroupDisplayName_japanese) {
+                                const dbRegionNameForCity = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                                totalCases += regionCaseData[dbRegionNameForCity] || 0;
+                            }
+                        });
+                        infoBoxRegionName = prefectureTranslation[selectedLayerName]?.[currentLanguage] || selectedLayerName;
+                        updateInfoBox(infoBoxRegionName, totalCases);
+                    }
+
+                    if (dbRegionName) { // Only fetch forecast for region groups, not prefectures
+                        fetch(`http://172.16.1.13:5000/api/forecast?region=${dbRegionName}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.error) {
+                                    forecastContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                                } else {
+                                    forecastContent.innerHTML = `
+                                        <img src="http://172.16.1.13:5000${data.plot_url}" onerror="this.onerror=null;this.src='https://placehold.co/400x300/cccccc/ffffff?text=Forecast+Plot+Missing';" style="width:100%; margin-top:10px;">
+                                    `;
+                                }
+                                forecastBox.style.display = "block";
+                            })
+                            .catch(err => {
+                                forecastContent.innerHTML = `<p style="color:red;">${currentLanguage === 'ja' ? '予測の取得エラー' : 'Error fetching forecast'}: ${err.message}</p>`;
+                                forecastBox.style.display = "block";
+                            });
+                    } else {
+                        forecastBox.style.display = "none";
+                    }
+                }
+            }
+
+            function showPrefectureRadioButtons() {
+                clearDynamicRadioGroups();
+                hideAllDynamicRadioGroups();
+                prefectureRadioGroupDiv.style.display = "block";
+
+                for (const prefName of Object.keys(prefectureGroups)) {
+                    const label = document.createElement("label");
+                    const input = document.createElement("input");
+                    input.type = "radio";
+                    input.name = "dynamicSearch";
+                    input.value = prefName; // Storing the internal key like "Osaka-Prefecture"
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(prefectureTranslation[prefName][currentLanguage])); // Display translated name
+                    prefectureRadioGroupDiv.appendChild(label);
+
+                    input.addEventListener("change", handleDynamicRadioChange);
+                }
+            }
+
+            function showRegionGroupRadioButtons() {
+                clearDynamicRadioGroups();
+                hideAllDynamicRadioGroups();
+                regionGroupRadioGroupDiv.style.display = "block";
+
+                const currentRegionGroups = currentLanguage === 'ja' ? japaneseRegionGroups : englishRegionGroups;
+                for (const regionName of Object.keys(currentRegionGroups)) {
+                    const label = document.createElement("label");
+                    const input = document.createElement("input");
+                    input.type = "radio";
+                    input.name = "dynamicSearch";
+                    input.value = regionName;
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(regionName));
+                    regionGroupRadioGroupDiv.appendChild(label);
+
+                    input.addEventListener("change", handleDynamicRadioChange);
+                }
+            }
+
+            searchFilterRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    hideAllMapLayers();
+                    if (this.value === 'prefecture') {
+                        showPrefectureRadioButtons();
+                    }
+                    else if (this.value === 'regionGroup') {
+                        showRegionGroupRadioButtons();
+                    } else { // 'all'
+                        hideAllDynamicRadioGroups();
+                        // Potentially add default layers if 'all' means showing everything
+                        // For now, it just clears previous layers
+                    }
+                });
+            });
+
+            citySearchInput.placeholder = currentLanguage === 'ja' ? '🔍 市区町村名で検索...' : '🔍 Search by city name...';
+
+            citySearchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase();
+                citySearchResults.innerHTML = '';
+                citySearchResults.style.display = 'none';
+
+                if (query.length > 0) {
+                    let matchingCities = [];
+                    if (currentLanguage === 'ja') {
+                         matchingCities = allFeatures.filter(feature =>
+                            feature.properties.N03_004 && feature.properties.N03_004.toLowerCase().includes(query)
+                        );
+                    } else { // English
+                        matchingCities = allFeatures.filter(feature =>
+                            feature.properties.N03_004 && cityNameToEnglish[feature.properties.N03_004] && cityNameToEnglish[feature.properties.N03_004].toLowerCase().includes(query)
+                        );
+                    }
+
+                    matchingCities.forEach(feature => {
+                        const originalCityName = feature.properties.N03_004; // Always Japanese from GeoJSON
+                        const displayName = currentLanguage === 'ja' ? originalCityName : (cityNameToEnglish[originalCityName] || originalCityName);
+
+                        const li = document.createElement('li');
+                        li.textContent = displayName;
+                        li.addEventListener('click', function() {
+                            hideAllMapLayers();
+                            const clickedCityJapanese = originalCityName; // Use Japanese name for internal lookup
+                            const regionGroupDisplayName_japanese = cityToRegion[clickedCityJapanese];
+                            const dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                            const cases = regionCaseData[dbRegionName] || 0;
+                            const prefectureName_japanese = feature.properties.N03_001;
+                            const prefectureName_currentLang = prefectureTranslation[Object.keys(prefectureTranslation).find(key => prefectureTranslation[key].ja === prefectureName_japanese)]?.[currentLanguage] || prefectureName_japanese;
+
+                            // Highlight the city
+                            const highlightLayer = L.geoJson(feature, {
+                                style: {
+                                    color: 'yellow',
+                                    weight: 5,
+                                    opacity: 1,
+                                    fillColor: 'yellow',
+                                    fillOpacity: 0.5
+                                }
+                            }).addTo(map);
+                            highlightLayer.options.isCityHighlight = true; // Mark as highlight layer
+
+                            if (highlightLayer.getBounds().isValid()) {
+                                map.fitBounds(highlightLayer.getBounds());
+                            }
+
+                            updateInfoBox(originalCityName, cases, {
+                                isCitySearch: true,
+                                regionGroup: regionGroupDisplayName_japanese, // Pass Japanese to updateInfoBox to allow translation
+                                prefecture: prefectureName_japanese, // Pass Japanese to updateInfoBox to allow translation
+                                originalCityName: originalCityName
+                            });
+
+                            let regionForForecast = null;
+                            if (regionGroupDisplayName_japanese && REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese]) {
+                                regionForForecast = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                            }
+
+                            if (regionForForecast) {
+                                fetch(`http://172.16.1.13:5000/api/forecast?region=${regionForForecast}`)
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.error) {
+                                            forecastContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                                        } else {
+                                            forecastContent.innerHTML = `
+                                                <img src="http://172.16.1.13:5000${data.plot_url}" onerror="this.onerror=null;this.src='https://placehold.co/400x300/cccccc/ffffff?text=Forecast+Plot+Missing';" style="width:100%; margin-top:10px;">
+                                            `;
+                                        }
+                                        forecastBox.style.display = "block";
+                                    })
+                                    .catch(err => {
+                                        forecastContent.innerHTML = `<p style="color:red;">${currentLanguage === 'ja' ? '予測の取得エラー' : 'Error fetching forecast'}: ${err.message}</p>`;
+                                        forecastBox.style.display = "block";
+                                    });
+                            } else {
+                                forecastBox.style.display = "none";
+                            }
+
+                            citySearchInput.value = '';
+                            citySearchResults.innerHTML = '';
+                            citySearchResults.style.display = 'none';
+                        });
+                        citySearchResults.appendChild(li);
+                    });
+
+                    if (matchingCities.length > 0) {
+                        citySearchResults.style.display = 'block';
+                    }
+                }
+            });
+
+            regionSearchSelect.addEventListener('change', function() {
+                hideAllMapLayers();
+                const selectedValue = this.value; // This will be the display name in the current language
+                
+                // Determine the internal (Japanese) name for region groups for lookup
+                let internalRegionName = selectedValue; // Assume it's already internal if Japanese
+                if (currentLanguage === 'en' && englishRegionGroups[selectedValue]) {
+                    // Find the Japanese equivalent key for the selected English region group name
+                    const engRegionKey = Object.keys(englishRegionGroups).find(key => key === selectedValue);
+                    internalRegionName = Object.keys(japaneseRegionGroups).find(key => REGION_GROUP_TO_DB_NAME_MAP[key] === REGION_GROUP_TO_DB_NAME_MAP[engRegionKey]);
+                }
+
+                if (overlayMaps[internalRegionName || selectedValue]) { // Try internal, then selectedValue
+                    const layerToLoad = overlayMaps[internalRegionName || selectedValue];
+                    map.addLayer(layerToLoad);
+                    map.fitBounds(layerToLoad.getBounds());
+
+                    let totalCasesForInfoBox = 0;
+                    let dbRegionName = "";
+                    let infoBoxRegionName = selectedValue;
+                    let infoBoxPrefectureName = "";
+
+                    if (Object.keys(regionGroups).includes(selectedValue)) { // If it's a region group
+                        dbRegionName = REGION_GROUP_TO_DB_NAME_MAP[selectedValue];
+                        totalCasesForInfoBox = regionCaseData[dbRegionName] || 0;
+
+                        const firstCityFeature = layerToLoad.getLayers()[0]?.feature;
+                        const prefecture_japanese = firstCityFeature ? firstCityFeature.properties.N03_001 : 'N/A';
+                        infoBoxPrefectureName = prefectureTranslation[Object.keys(prefectureTranslation).find(key => prefectureTranslation[key].ja === prefecture_japanese)]?.[currentLanguage] || prefecture_japanese;
+
+                        updateInfoBox(selectedValue, totalCasesForInfoBox, { prefecture: infoBoxPrefectureName });
+
+                    } else if (Object.keys(prefectureGroups).includes(selectedValue)) { // If it's a prefecture
+                        const currentPrefectureDbName = selectedValue.replace(' Prefecture', '-Prefecture'); // Assuming English format
+                        totalCasesForInfoBox += regionCaseData[currentPrefectureDbName] || 0;
+
+                        layerToLoad.eachLayer(function(featureLayer) {
+                            const city_japanese = featureLayer.feature.properties.N03_004;
+                            const regionGroupDisplayName_japanese = cityToRegion[city_japanese];
+                            if (regionGroupDisplayName_japanese) {
+                                const dbRegionNameForCity = REGION_GROUP_TO_DB_NAME_MAP[regionGroupDisplayName_japanese];
+                                totalCasesForInfoBox += regionCaseData[dbRegionNameForCity] || 0;
+                            }
+                        });
+                        infoBoxRegionName = prefectureTranslation[selectedValue]?.[currentLanguage] || selectedValue;
+                        updateInfoBox(infoBoxRegionName, totalCasesForInfoBox);
+                        forecastBox.style.display = "none";
+                    }
+
+                    if (dbRegionName) {
+                        fetch(`http://172.16.1.13:5000/api/forecast?region=${dbRegionName}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.error) {
+                                    forecastContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                                } else {
+                                    forecastContent.innerHTML = `
+                                        <img src="http://172.16.1.13:5000${data.plot_url}" onerror="this.onerror=null;this.src='https://placehold.co/400x300/cccccc/ffffff?text=Forecast+Plot+Missing';" style="width:100%; margin-top:10px;">
+                                    `;
+                                }
+                                forecastBox.style.display = "block";
+                            })
+                            .catch(err => {
+                                forecastContent.innerHTML = `<p style="color:red;">${currentLanguage === 'ja' ? '予測の取得エラー' : 'Error fetching forecast'}: ${err.message}</p>`;
+                                forecastBox.style.display = "block";
+                            });
+                    }
+                }
+            });
+
+            // Populate search dropdowns after layers are initialized
+            function updateSearchOptions() {
+                regionSearchSelect.innerHTML = `<option disabled selected>${currentLanguage === 'ja' ? '🔽 地域または都道府県にジャンプ...' : '🔽 Jump to region or prefecture...'}</option>`;
+                
+                const currentRegionGroups = currentLanguage === 'ja' ? japaneseRegionGroups : englishRegionGroups;
+                for (const name of Object.keys(currentRegionGroups)) {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    regionSearchSelect.appendChild(option);
+                }
+                for (const name of Object.keys(prefectureGroups)) {
+                    const option = document.createElement("option");
+                    option.value = name; // Storing internal key like "Osaka-Prefecture"
+                    option.textContent = prefectureTranslation[name][currentLanguage]; // Display translated name
+                    regionSearchSelect.appendChild(option);
+                }
+            }
+            updateSearchOptions();
+
+            // --- Collapsible Panel Logic (Horizontal Slide) ---
+            toggleSearchPanelButton.addEventListener('click', function() {
+                const isCollapsed = searchPanel.classList.toggle('collapsed');
+                if (isCollapsed) {
+                    toggleSearchPanelButton.textContent = '▶';
+                } else {
+                    toggleSearchPanelButton.textContent = '◀';
+                }
+                setTimeout(adjustZoomControlPosition, 500);
+            });
+
+            // Initial adjustment of zoom control position after map is fully loaded
+            adjustZoomControlPosition();
+            window.addEventListener('resize', adjustZoomControlPosition);
+        });
+    }
+
+   
+    languageToggleBtn.addEventListener('click', function() {
+    currentLanguage = currentLanguage === 'ja' ? 'en' : 'ja';
+    this.textContent = currentLanguage === 'ja' ? '日本語 / English' : 'English / 日本語';
+
+    // Update UI elements
+    document.querySelector('label input[value="all"]').nextSibling.textContent = currentLanguage === 'ja' ? 'すべて' : 'All';
+    document.querySelector('label input[value="prefecture"]').nextSibling.textContent = currentLanguage === 'ja' ? '都道府県' : 'Prefectures';
+    document.querySelector('label input[value="regionGroup"]').nextSibling.textContent = currentLanguage === 'ja' ? '地域グループ' : 'Region Groups';
+    document.querySelector('#prefectureRadioGroup h3').textContent = currentLanguage === 'ja' ? '都道府県:' : 'Prefectures:';
+    document.querySelector('#regionGroupRadioGroup h3').textContent = currentLanguage === 'ja' ? '地域グループ:' : 'Region Groups:';
+    document.querySelector('#citySearch').placeholder = currentLanguage === 'ja' ? '🔍 市区町村名で検索...' : '🔍 Search by city name...';
+    document.querySelector('#infoBox h4').textContent = currentLanguage === 'ja' ? '場所の詳細' : 'Location Details';
+    document.querySelector('#forecastBox h4').textContent = currentLanguage === 'ja' ? 'インフルエンザ予測' : 'Influenza Forecast';
+
+    // Translate navigation bar links
+    document.getElementById('navHome').textContent = currentLanguage === 'ja' ? 'ホーム' : 'Home';
+    document.getElementById('navForecast').textContent = currentLanguage === 'ja' ? 'インフルエンザの予測' : 'Influenza Forecast';
+    document.getElementById('navRiskAssessment').textContent = currentLanguage === 'ja' ? 'リスク評価' : 'Risk Assessment';
+
+    document.querySelector('#regionSearch option[disabled][selected]').textContent =
+        currentLanguage === 'ja' ? '🔽 地域または都道府県にジャンプ...' : '🔽 Jump to region or prefecture...';
+
+
+    // Update active regionGroups and re-initialize map layers and search options
+    regionGroups = currentLanguage === 'ja' ? japaneseRegionGroups : englishRegionGroups;
+    hideAllMapLayers();
+    initializeMap();
+    clearInfoBox(); // This line should trigger the update for infoContent and forecastContent
+
+    // Reset radio button selection and hide dynamic groups
+    document.querySelector('input[name="searchFilter"][value="all"]').checked = true;
+    hideAllDynamicRadioGroups();
+});
+
+
+    // This is the main fetch that initiates everything
+    // Use absolute URL for fetching total cases data
+    fetch('http://172.16.1.13:5000/api/total_cases')
+      .then(response => response.json())
+      .then(caseData => {
+        console.log("✅ API Cases Data Received:", caseData);
+        regionCaseData = caseData; // CRITICAL: Assign fetched data to global variable
+
+        // Debugging: Check for name mismatches from API data vs expected map names
+        console.log("--- API Data Name Check ---");
+        const expectedNames = Object.values(REGION_GROUP_TO_DB_NAME_MAP)
+          .concat([
+            "Osaka-Prefecture",
+            "Kyoto-Prefecture",
+            "Nara-Prefecture"
+          ]);
+
+        expectedNames.forEach(name => {
+          if (!(name in caseData)) {
+            console.warn(`⚠️ API MISMATCH: "${name}" not found in API data. May show 0 on map.`);
+          } else {
+            console.log(`✅ "${name}" → Cases: ${caseData[name]}`);
+          }
+        });
+        console.log("--- End API Data Name Check ---");
+
+        initializeMap(); // Trigger map draw only after data is ready
+      })
+      .catch(error => console.error("❌ Error fetching cases data:", error));
+
+
+</script>
+
+</body>
+</html>
