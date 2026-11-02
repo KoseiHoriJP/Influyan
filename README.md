@@ -143,13 +143,7 @@ A demonstration video of the complete version survived because it was saved in a
 
 [Watch the Influyan demonstration video](DemoVideo_Influyan.mp4) (2 minutes 46 seconds, 1280×720, H.264/AAC MP4, approximately 30 MB).
 
-The original `.drn` recording should also be preserved separately as a backup.
 
-## Documentation basis
 
-This overview was reconstructed from the available source files and two project documents:
 
-- *PBL Final Report* — Kosei Hori
-- *PBL3 Group D Software Requirements Specification*
 
-The final report describes completed team activities and contributions. The SRS primarily describes intended requirements, so SRS-only items are identified above as specified or planned rather than implemented.
