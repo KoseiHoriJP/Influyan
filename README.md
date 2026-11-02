@@ -22,6 +22,14 @@ The project documentation describes a complete system that would:
 
 The final report confirms that official prefectural sources were preferred because they provided consistent weekly updates. Hospital data and `disease.sh` were investigated but were not used in the final data source selection.
 
+## Project recovery and demonstration video
+
+The complete project folder was stored only on a laptop and was lost when the laptop broke. Unfortunately, there was no other backup of that folder.
+
+A demonstration video of the complete version survived because it was saved in a different environment. It provides the best remaining visual reference for the completed system.
+
+[Watch the Influyan demonstration video](DemoVideo_Influyan.mp4) (2 minutes 46 seconds, 1280×720, H.264/AAC MP4, approximately 30 MB).
+
 ## Recovered prototype features
 
 The files in this repository demonstrate part of that vision:
@@ -135,13 +143,6 @@ The recovered frontend also contains development-specific localhost and private 
 
 The available reports do not provide a forecasting accuracy score, evaluation dataset, or other quantitative model results, so no model-performance claim is made here.
 
-## Project recovery and demonstration video
-
-The complete project folder was stored only on a laptop and was lost when the laptop broke. Unfortunately, there was no other backup of that folder.
-
-A demonstration video of the complete version survived because it was saved in a different environment. It provides the best remaining visual reference for the completed system.
-
-[Watch the Influyan demonstration video](DemoVideo_Influyan.mp4) (2 minutes 46 seconds, 1280×720, H.264/AAC MP4, approximately 30 MB).
 
 
 
