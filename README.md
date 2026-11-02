@@ -6,7 +6,7 @@
 
 INFLU-ヤン was designed as a public medical-information application that makes regional influenza activity easier to understand. The system combines official case data, geographic boundaries, and prediction graphs so that users can identify areas with higher influenza activity, make informed health decisions, and take appropriate precautions when planning travel.
 
-The original project was developed by Group D during PBL3. Its primary audience is the general public, and the interface was designed to work in both English and Japanese without requiring prior training.
+Its primary audience is the general public, and the interface was designed to work in both English and Japanese without requiring prior training.
 
 ## Original system vision
 
