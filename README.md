@@ -1,5 +1,7 @@
 # INFLU-ヤン (Influyan)
 
+**English** | [日本語](README.ja.md)
+
 > A recovered, pre-model prototype of a public influenza surveillance and forecasting application for Japan's Kansai region.
 
 ## Project overview
